@@ -1,0 +1,5 @@
+NAME="kids.vcs"
+DESCRIPTION="Kids VCS management library."
+EMAIL="valentin.lab@kalysto.org"
+AUTHOR="Valentin Lab"
+AUTHOR_EMAIL="$AUTHOR <$EMAIL>"
