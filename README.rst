@@ -128,6 +128,26 @@ We can access the config thanks to::
     >>> print(r.config["core.filemode"])
     true
 
+You can also instanciate directly the ``GitConfig`` class::
+
+    >>> from kids.vcs import GitConfig
+
+    >>> print(GitConfig("repos")["core.filemode"])
+    true
+
+Without any repository, it's the current repository that should be
+used, and if none, well it should answer as much as a normal ``git
+config`` would::
+
+    >>> GitConfig()["core.filemode"]
+    Traceback (most recent call last):
+    ...
+    KeyError: 'core.filemode'
+    >>> os.chdir("repos")
+    >>> print(GitConfig()["core.filemode"])
+    true
+
+
 
 Git commit access
 -----------------

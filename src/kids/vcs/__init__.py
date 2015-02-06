@@ -23,7 +23,7 @@ except NameError:
 class SubGitObjectMixin(object):
 
     def __init__(self, repos=None):
-        if isstr(repos):
+        if isstr(repos) or repos is None:
             repos = GitRepos(repos)
         self._repos = repos
 
