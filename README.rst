@@ -200,7 +200,8 @@ You can access all commits via::
     >>> list(r.log())
     [<GitCommit ...>, <GitCommit ...>]
 
-and provide wich commit ancestry to include or to exclude (see ``git log``):
+and provide wich commit ancestry to include or to exclude (see ``git
+log``)::
 
     >>> list(r.log(includes=["HEAD", ], excludes=["0.0.1", ]))
     [<GitCommit ...>]
