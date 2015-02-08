@@ -6,16 +6,18 @@ from subprocess import Popen, PIPE
 
 
 from kids.txt import indent
-from kids.sh import ShellError, swrap
+from kids.sh import ShellError, ShellOutput, swrap
 from kids.file import normpath, File
 from kids.cache import cache
 
 
 try:
     basestring  # attempt to evaluate basestring
+
     def isstr(s):
         return isinstance(s, basestring)
 except NameError:
+
     def isstr(s):
         return isinstance(s, str)
 
@@ -141,8 +143,9 @@ class GitConfig(SubGitObjectMixin):
     get item, and getattr default values can be used:
 
         >>> del repos.swrap.mock_returns
-        >>> repos.swrap.mock_raises = ShellError('Key not found',
-        ...                                      errlvl=1, out="", err="")
+        >>> repos.swrap.mock_raises = ShellError(
+        ...     'Key not found',
+        ...     outputs=ShellOutput(errlvl=1, out="", err=""))
 
         >>> getattr(cfg, "foo", "default")
         Called gitRepos.swrap("git config 'foo'")
@@ -176,7 +179,8 @@ class GitConfig(SubGitObjectMixin):
         try:
             res = self.swrap(cmd)
         except ShellError as e:
-            if e.errlvl == 1 and e.out == "" and e.err == "":
+            out, err, errlvl = e.outputs
+            if errlvl == 1 and out == "" and err == "":
                 raise AttributeError("key %r is not found in git config."
                                      % label)
             raise
@@ -190,6 +194,20 @@ class GitConfig(SubGitObjectMixin):
             return getattr(self, label)
         except AttributeError:
             raise KeyError(label)
+
+
+def repos_cmd(f):
+
+    def _f(self, *a, **kw):
+        ## verify that we are in a git repository
+        try:
+            self.swrap("git remote")
+        except ShellError:
+            raise OSError(
+                "Not a git repository (%r or any of the parent directories)."
+                % self._orig_path)
+        return f(self, *a, **kw)
+    return _f
 
 
 class GitRepos(object):
@@ -213,37 +231,27 @@ class GitRepos(object):
 
     @cache
     @property
-    def check_in_repos(self):
-        ## verify that we are in a git repository
-        try:
-            self.swrap("git remote")
-        except ShellError:
-            raise EnvironmentError(
-                "Not in a git repository. (calling ``git remote`` failed.)")
-
-    @cache
-    @property
+    @repos_cmd
     def toplevel(self):
-        self.check_in_repos
         return None if self.bare else \
                self.swrap("git rev-parse --show-toplevel")
 
     @cache
     @property
+    @repos_cmd
     def bare(self):
-        self.check_in_repos
         return self.swrap("git rev-parse --is-bare-repository") == "true"
 
     @cache
     @property
+    @repos_cmd
     def gitdir(self):
-        self.check_in_repos
         return normpath(
             os.path.join(self._orig_path,
                          self.swrap("git rev-parse --git-dir")))
 
+    @repos_cmd
     def commit(self, identifier):
-        self.check_in_repos
         return GitCommit(self, identifier)
 
     @cache
@@ -258,6 +266,7 @@ class GitRepos(object):
         return swrap(command, **kwargs)
 
     @property
+    @repos_cmd
     def tags(self):
         """String list of repository's tag names
 
@@ -273,6 +282,7 @@ class GitRepos(object):
         return sorted([self.commit(tag) for tag in tags if tag != ''],
                       key=lambda x: int(x.committer_date_timestamp))
 
+    @repos_cmd
     def log(self, includes=["HEAD", ], excludes=[], include_merge=True):
         """Reverse chronological list of git repository's commits
 
@@ -306,30 +316,15 @@ class GitRepos(object):
             for ref in refs["excludes"]:
                 plog.stdin.write("^%s\n" % ref.sha1)
             plog.stdin.close()
-        except IOError as e:
+        except IOError:
             errlvl = plog.poll()
             if errlvl is not None:  ## it has returned too early
-                out = plog.stdout.read()
-                err = plog.stderr.read()
-                ## XXXvlab: shouldn't we include all this in the repr
-                ## of ShellError so we could only raise the
-                ## ShellError(namedtuple) ?
-                formatted = []
-                if out:
-                    if out.endswith('\n'):
-                        out = out[:-1]
-                    formatted.append("stdout:\n%s" % indent(out, "| "))
-                if err:
-                    if err.endswith('\n'):
-                        err = err[:-1]
-                    formatted.append("stderr:\n%s" % indent(err, "| "))
-                formatted = '\n'.join(formatted)
-
+                out = '\n'.join(File(plog.stdout).read())
+                err = '\n'.join(File(plog.stderr).read())
                 raise ShellError(
-                    "Git process %r exited prematurely (errlvl: %d).\n%s"
-                    % (command, errlvl,
-                       indent(formatted, prefix="  ")),
-                    errlvl=errlvl, command=command, out=out, err=err)
+                    "Git call unexpetedly failed before end of stdin.",
+                    command=command,
+                    outputs=ShellOutput(out, err, errlvl))
             raise
 
         def mk_commit(dct):

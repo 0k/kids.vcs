@@ -148,7 +148,6 @@ config`` would::
     true
 
 
-
 Git commit access
 -----------------
 
@@ -225,6 +224,14 @@ log``)::
 
     >>> list(r.log(includes=["HEAD", ], excludes=["0.0.1", ]))
     [<GitCommit ...>]
+
+Avoid doing this on a non-existent repository::
+
+    >>> list(GitRepos("/").log())
+    Traceback (most recent call last):
+    ...
+    OSError: Not a git repository ('/' or any of the parent directories).
+
 
 
 Contributing
