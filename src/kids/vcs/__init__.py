@@ -147,19 +147,19 @@ class GitConfig(SubGitObjectMixin):
         ...     'Key not found',
         ...     outputs=ShellOutput(errlvl=1, out="", err=""))
 
-        >>> getattr(cfg, "foo", "default")
-        Called gitRepos.swrap("git config 'foo'")
-        'default'
-
         >>> cfg["foo"]  ## doctest: +ELLIPSIS
         Traceback (most recent call last):
         ...
         KeyError: 'foo'
 
-        >>> getattr(cfg, "foo")  ## doctest: +ELLIPSIS
+        >>> cfg.foo  ## doctest: +ELLIPSIS
         Traceback (most recent call last):
         ...
         AttributeError...
+
+        >>> getattr(cfg, "foo", "default")
+        Called gitRepos.swrap("git config 'foo'")
+        'default'
 
         >>> cfg.get("foo", "default")
         Called gitRepos.swrap("git config 'foo'")
