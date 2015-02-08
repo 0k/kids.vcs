@@ -1,0 +1,4 @@
+--index-url https://pypi.python.org/simple/
+
+-e git+https://github.com/0k/kids.sh.git#egg=kids.sh
+-e .
