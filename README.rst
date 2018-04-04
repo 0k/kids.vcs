@@ -90,9 +90,9 @@ Let's now create a real git repository::
 
 We can now already access it::
 
-    >>> from kids.vcs import GitRepos
+    >>> from kids.vcs import git
 
-    >>> r = GitRepos("repos")
+    >>> r = git.GitRepos("repos")
 
 By default, the current directory is used and the top-most git repository
 that contains the current directory will be used as the master git repository.
@@ -126,21 +126,21 @@ We can access the config thanks to::
 
 You can also instanciate directly the ``GitConfig`` class::
 
-    >>> from kids.vcs import GitConfig
+    >>> from kids.vcs import git
 
-    >>> print(GitConfig("repos")["core.filemode"])
+    >>> print(git.GitConfig("repos")["core.filemode"])
     true
 
 Without any repository, it's the current repository that should be
 used, and if none, well it should answer as much as a normal ``git
 config`` would::
 
-    >>> GitConfig()["core.filemode"]
+    >>> git.GitConfig()["core.filemode"]
     Traceback (most recent call last):
     ...
     KeyError: 'core.filemode'
     >>> os.chdir("repos")
-    >>> print(GitConfig()["core.filemode"])
+    >>> print(git.GitConfig()["core.filemode"])
     true
 
 
@@ -185,9 +185,7 @@ And several informations are available::
 
 You can access to all of these::
 
-    >>> from kids.vcs import GIT_FORMAT_KEYS
-
-    >>> print(", ".join(sorted(GIT_FORMAT_KEYS)))
+    >>> print(", ".join(sorted(git.GIT_FORMAT_KEYS)))
     author_date, author_date_timestamp, author_name, body,
     committer_date_timestamp, committer_name, raw_body, sha1, subject
 
@@ -223,7 +221,7 @@ log``)::
 
 Avoid doing this on a non-existent repository::
 
-    >>> list(GitRepos("/").log())
+    >>> list(git.GitRepos("/").log())
     Traceback (most recent call last):
     ...
     OSError: Not a git repository ('/' or any of the parent directories).
