@@ -74,28 +74,92 @@ directory::
 
 Let's now create a real git repository::
 
-    >>> from kids.sh import wrap
-
-    >>> _ = wrap("""
-    ...
-    ...     ## Creating repository
-    ...     mkdir repos
-    ...     cd repos
-    ...     git init .
-    ...
-    ...     git config user.email "committer@example.com"
-    ...     git config user.name "The Committer"
-    ...
-    ... """)
-
-We can now already access it::
-
     >>> from kids.vcs import git
+
+This first command will create a new directory and launch ``git init`` and
+and will return the new ``GitRepos`` object::
+
+    >>> r = git.GitRepos.create("repos",
+    ...                         email="committer@example.com",
+    ...                         name="The Committer")
+
+You might also want to only use an existing directory and launch ``git init`` then
+use::
+
+    >>> r = git.GitRepos.init("repos")
+
+Or, if wanting to use an already existing folder already initialised::
 
     >>> r = git.GitRepos("repos")
 
 By default, the current directory is used and the top-most git repository
 that contains the current directory will be used as the master git repository.
+
+Avoid instantiating a non-existent git repository::
+
+    >>> git.GitRepos("/")
+    Traceback (most recent call last):
+    ...
+    OSError: Not a git repository ('/' or any of the parent directories).
+
+
+
+Git commands shortcut
+---------------------
+
+Aside from all the helpers that will be exposed in the following section, a
+``GitRepos`` object provides a handy ``.git`` attribute to directly tap on
+the git command line::
+
+    >>> print(r.git.rev_parse(is_bare_repository=True))
+    false
+
+A few things to note:
+
+- the method name is the git command you want to launch
+- ``_`` (underscores) are swapped for ``-``.
+- there are 2 different way to use the methods:
+
+  - provide one unique array of strings that will simply appended
+    on the command line.
+
+  - provide string positional arguments and keyword arguments:
+
+    - keyword arguments are options... :
+
+      - a double-dash will be added before the keyword if it is
+        composed of more than one char
+      - a single dash will be added before the keyword in cas it
+        a single character keyword.
+      - ``_`` (underscores) are swapped for ``-`` in keyword name
+      - and value is appended just after on the command line.
+
+    - positional arguments are appended AFTER all the options...
+
+- the method return value is the space-stripped standard output of the
+  command sent.
+
+To illustrate this and the following points::
+
+    >>> print(r.git.commit(
+    ...     message='new: first commit',
+    ...     author='Bob <bob@example.com>',
+    ...     date='2000-01-01 10:00:00',
+    ...     allow_empty=True))
+    [master (root-commit) ...] new: first commit
+     Author: Bob <bob@example.com>
+     Date: Sat Jan 1 10:00:00 2000 ...
+
+    >>> print(r.git.tag("0.0.1"))
+    >>> print(r.git.commit(
+    ...     message='new: second commit',
+    ...     author='Alice <alice@example.com>',
+    ...     date='2000-01-02 11:00:00',
+    ...     allow_empty=True))
+    [master ...] new: second commit
+     Author: Alice <alice@example.com>
+     Date: Sun Jan 2 11:00:00 2000 ...
+    >>> print(r.git.tag("0.0.2"))
 
 
 Access core informations
@@ -147,47 +211,24 @@ config`` would::
 Git commit access
 -----------------
 
-We can access interesting information per commit, for the following
-we need actually to commit something::
-
-    >>> _ = wrap(r"""
-    ...     cd repos
-    ...     ## Adding first file
-    ...     echo 'Hello' > a
-    ...     git add a
-    ...     git commit -m 'new: first commit' \
-    ...         --author 'Bob <bob@example.com>' \
-    ...         --date '2000-01-01 10:00:00'
-    ...     git tag 0.0.1
-    ...
-    ...     ## Adding second file
-    ...     echo 'Second file' > b
-    ...     git add b
-    ...
-    ...     ## Notice there are no section here.
-    ...     git commit -m 'added ``b``, what a summary !' \
-    ...         --author 'Alice <alice@example.com>' \
-    ...         --date '2000-01-02 11:00:00'
-    ...     git tag 0.0.2
-    ... """)
-
-Now we can::
+We can access interesting information per commit::
 
     >>> r.commit("HEAD")
     <GitCommit 'HEAD'>
 
-And several informations are available::
+And several information are available::
 
     >>> print(r.commit("HEAD").author_name)
     Alice
     >>> print(r.commit("master").subject)
-    added ``b``, what a summary !
+    new: second commit
 
 You can access to all of these::
 
     >>> print(", ".join(sorted(git.GIT_FORMAT_KEYS)))
-    author_date, author_date_timestamp, author_name, body,
-    committer_date_timestamp, committer_name, raw_body, sha1, subject
+    author_date, author_date_timestamp, author_email, author_name, body,
+    committer_date_timestamp, committer_name, decorate_string,
+    parent_list_string, raw_body, sha1, sha1_short, subject
 
 
 There's a convienience attribute ``date`` also::
@@ -216,16 +257,8 @@ You can access all commits via::
 and provide wich commit ancestry to include or to exclude (see ``git
 log``)::
 
-    >>> list(r.log(includes=["HEAD", ], excludes=["0.0.1", ]))
+    >>> list(r.log(["HEAD", "^0.0.1", ]))
     [<GitCommit ...>]
-
-Avoid doing this on a non-existent repository::
-
-    >>> list(git.GitRepos("/").log())
-    Traceback (most recent call last):
-    ...
-    OSError: Not a git repository ('/' or any of the parent directories).
-
 
 
 Contributing
