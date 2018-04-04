@@ -6,10 +6,6 @@ kids.vcs
    :target: https://pypi.python.org/pypi/kids.vcs/
    :alt: Latest PyPI version
 
-.. image:: http://img.shields.io/pypi/dm/kids.vcs.svg?style=flat
-   :target: https://pypi.python.org/pypi/kids.vcs/
-   :alt: Number of PyPI downloads
-
 .. image:: http://img.shields.io/travis/0k/kids.vcs/master.svg?style=flat
    :target: https://travis-ci.org/0k/kids.vcs/
    :alt: Travis CI build status
