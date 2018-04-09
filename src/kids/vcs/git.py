@@ -433,32 +433,32 @@ class GitTag(SubGitObjectMixin):
             "annotated" if self.is_annotated else "lightweight")
 
 
-class GitConfig(SubGitObjectMixin):
+class GitConfig(object):
     """Interface to config values of git
 
-    Let's create a fake GitRepos:
+    Let's create a fake GitCmd:
 
         >>> from minimock import Mock
-        >>> repos = Mock("gitRepos")
+        >>> git = Mock("git")
 
     Initialization:
 
-        >>> cfg = GitConfig(repos)
+        >>> cfg = GitConfig(git_command=git)
 
     Query, by attributes or items:
 
-        >>> repos.git.config.mock_returns = "bar"
+        >>> git.config.mock_returns = "bar"
         >>> cfg.foo
-        Called gitRepos.git.config('foo')
+        Called git.config('foo')
         'bar'
         >>> cfg["foo"]
-        Called gitRepos.git.config('foo')
+        Called git.config('foo')
         'bar'
         >>> cfg.get("foo")
-        Called gitRepos.git.config('foo')
+        Called git.config('foo')
         'bar'
         >>> cfg["foo.wiz"]
-        Called gitRepos.git.config('foo.wiz')
+        Called git.config('foo.wiz')
         'bar'
 
     Notice that you can't use attribute search in subsection as ``cfg.foo.wiz``
@@ -468,7 +468,7 @@ class GitConfig(SubGitObjectMixin):
     Nevertheless, you can do:
 
         >>> getattr(cfg, "foo.wiz")
-        Called gitRepos.git.config('foo.wiz')
+        Called git.config('foo.wiz')
         'bar'
 
     Default values
@@ -476,12 +476,12 @@ class GitConfig(SubGitObjectMixin):
 
     get item, and getattr default values can be used:
 
-        >>> del repos.git.config.mock_returns
-        >>> repos.git.config.mock_raises = ShellError('Key not found',
-        ...                                           outputs=("", "", 1))
+        >>> del git.config.mock_returns
+        >>> git.config.mock_raises = ShellError('Key not found',
+        ...                                     outputs=("", "", 1))
 
         >>> getattr(cfg, "foo", "default")
-        Called gitRepos.git.config('foo')
+        Called git.config('foo')
         'default'
 
         >>> cfg["foo"]  ## doctest: +ELLIPSIS
@@ -495,17 +495,18 @@ class GitConfig(SubGitObjectMixin):
         AttributeError...
 
         >>> cfg.get("foo", "default")
-        Called gitRepos.git.config('foo')
+        Called git.config('foo')
         'default'
 
         >>> print("%r" % cfg.get("foo"))
-        Called gitRepos.git.config('foo')
+        Called git.config('foo')
         None
 
     """
 
-    def __init__(self, repos=None):
-        super(GitConfig, self).__init__(repos=repos)
+    def __init__(self, constrain_to_path=None, git_command=None):
+        self._constrain_to_path = constrain_to_path
+        self.git = git_command or GitCmd(self._constrain_to_path)
 
     def __getattr__(self, label):
         try:
@@ -527,27 +528,19 @@ class GitConfig(SubGitObjectMixin):
             raise KeyError(label)
 
 
-def repos_cmd(f):
+class GitCmd(object):
 
-    def _f(self, *a, **kw):
-        ## verify that we are in a git repository
-        try:
-            self.git.remote()
-        except ShellError:
-            raise OSError(
-                "Not a git repository (%r or any of the parent directories)."
-                % self._orig_path)
-        return f(self, *a, **kw)
-    return _f
-
-
-class GitCmd(SubGitObjectMixin):
+    def __init__(self, constrain_to_path=None):
+        self._constrain_to_path = constrain_to_path
 
     def __getattr__(self, label):
         label = label.replace("_", "-")
 
         def dir_wrap(command, **kwargs):
-            with set_cwd(self._repos._orig_path):
+            if self._constrain_to_path:
+                with set_cwd(self._constrain_to_path):
+                    return wrap(command, **kwargs)
+            else:
                 return wrap(command, **kwargs)
 
         def method(*args, **kwargs):
@@ -590,29 +583,33 @@ class GitRepos(object):
                 "Required ``git`` command not found or broken in $PATH. "
                 "(calling ``git version`` failed.)")
 
+        try:
+            self.git.remote()
+        except ShellError:
+            raise OSError(
+                "Not a git repository (%r or any of the parent directories)."
+                % self._orig_path)
     @cache
     @property
-    @repos_cmd
     def toplevel(self):
         return None if self.bare else self.git.rev_parse(show_toplevel=True)
 
     @cache
     @property
-    @repos_cmd
     def bare(self):
         return self.git.rev_parse(is_bare_repository=True) == "true"
 
     @cache
     @property
-    @repos_cmd
     def gitdir(self):
         return normpath(
             os.path.join(self._orig_path,
                          self.git.rev_parse(git_dir=True)))
 
     @property
+    @cache
     def git(self):
-        return GitCmd(self)
+        return GitCmd(self._orig_path)
 
     @classmethod
     def create(cls, directory, *args, **kwargs):
@@ -633,7 +630,6 @@ class GitRepos(object):
     def Tag(self, label):
         return GitTag(self, label)
 
-    @repos_cmd
     def Commit(self, identifier):
         return GitCommit(self, identifier)
 
@@ -642,12 +638,11 @@ class GitRepos(object):
     @cache
     @property
     def Config(self):
-        return GitConfig(self)
+        return GitConfig(constrain_to_path=self._orig_path)
 
     config = Config
 
     @property
-    @repos_cmd
     def tags(self):
         """String list of repository's tag names
 
