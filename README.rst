@@ -33,7 +33,7 @@ using ``kids.vcs``:
 Compatibility
 =============
 
-Tis code is python2 and python3 ready. It wasn't tested on windows.
+This code is python2 and python3 ready. It wasn't tested on windows.
 
 
 Installation
