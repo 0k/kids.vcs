@@ -751,3 +751,48 @@ def get_full_ref_type(full_ref_string):
     raise ValueError("Unexpected full ref syntax %r." % full_ref_string)
 
 
+class GitUrl(object):
+    """Git urls (used with clone for instance) helper
+
+        >>> url = GitUrl("https://github.com/vaab/shyaml")
+        >>> url.domain
+        'github.com'
+
+        >>> url.protocol
+        'https'
+
+    """
+
+    _ATTRS = ("username", "protocol", "domain", "path", "port")
+
+    def __init__(self, url):
+        self._url = url
+        username = None
+        protocol = "ssh"
+        if "://" in url:
+            protocol, url = url.split("://", 1)
+        if "/" in url:
+            url, path = url.split("/", 1)
+        if "@" in url:
+            username, url = url.split("@", 1)
+        else:
+            import os
+            import pwd
+            username = pwd.getpwuid(os.getuid()).pw_name
+        if ":" in url:
+            domain, port = url.split(":", 1)
+        else:
+            domain = url
+            port = 22
+
+        for a in self._ATTRS:
+            setattr(self, a, locals()[a])
+
+    def __eq__(self, v):
+        if not isinstance(v, GitUrl):
+            return False
+        return all(getattr(self, a, None) == getattr(v, a, None)
+                   for a in self._ATTRS)
+
+    def __str__(self):
+        return self._url
