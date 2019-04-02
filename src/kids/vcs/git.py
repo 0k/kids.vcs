@@ -528,6 +528,26 @@ class GitConfig(object):
             raise KeyError(label)
 
 
+def make_cli_args(*args, **kwargs):
+    if len(args) == 1 and not isstr(args[0]):
+        return args[0], kwargs
+    cli_args = []
+    for key, value in list(kwargs.items()):
+        if key == "env":
+            continue
+        cli_key = (("-%s" if len(key) == 1 else "--%s")
+                   % key.replace("_", "-"))
+        if isinstance(value, bool):
+            cli_args.append(cli_key)
+        else:
+            cli_args.append(cli_key)
+            cli_args.append(value)
+        kwargs.pop(key)
+
+    cli_args.extend(args)
+    return cli_args, kwargs
+
+
 class GitCmd(object):
 
     def __init__(self, constrain_to_path=None):
@@ -536,31 +556,15 @@ class GitCmd(object):
     def __getattr__(self, label):
         label = label.replace("_", "-")
 
-        def dir_wrap(command, **kwargs):
-            if self._constrain_to_path:
-                with set_cwd(self._constrain_to_path):
-                    return wrap(command, **kwargs)
-            else:
-                return wrap(command, **kwargs)
-
         def method(*args, **kwargs):
-            if len(args) == 1 and not isstr(args[0]):
-                return dir_wrap(
-                    ['git', label, ] + args[0],
-                    env=kwargs.get("env", None))
-            cli_args = []
-            for key, value in kwargs.items():
-                cli_key = (("-%s" if len(key) == 1 else "--%s")
-                           % key.replace("_", "-"))
-                if isinstance(value, bool):
-                    cli_args.append(cli_key)
-                else:
-                    cli_args.append(cli_key)
-                    cli_args.append(value)
+            cli_args, kw = make_cli_args(*args, **kwargs)
+            return wrap(['git', label, ] + cli_args, strip=True, **kw)
 
-            cli_args.extend(args)
-
-            return dir_wrap(['git', label, ] + cli_args)
+        if self._constrain_to_path:
+            def _f(*a, **kw):
+                with set_cwd(self._constrain_to_path):
+                    return method(*a, **kw)
+            return _f
         return method
 
 
