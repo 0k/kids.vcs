@@ -703,3 +703,51 @@ class GitRepos(object):
 
 git = GitCmd()
 
+
+def ls_remote(*a, **kw):
+    out = git.ls_remote(*a, **kw)
+    ## XXXvlab: if we are to read by line, we could support streaming
+    ## of stdout, and avoid loading everything in memory
+    if len(out):
+        for line in out.strip().split("\n"):
+            sha1, full_ref = line.split("\t", 1)
+            ref, rtype = get_full_ref_type(full_ref)
+            yield ref, rtype, sha1
+
+
+@cache
+def remote_url_reachable(url):
+    try:
+        next(ls_remote(url, "CHECK_GIT_REMOTE_URL_REACHABILITY"))
+    except ShellError as e:
+        if e.outputs.errlvl == 128:
+            return False
+        raise
+    except StopIteration as e:
+        pass
+    return True
+
+
+@cache
+def query_remote_for_ref(url, ref):
+    try:
+        rtype, _, sha1 = next(ls_remote(url, ref))
+    except StopIteration:
+        raise ValueError("Reference %r not found in git repos %r."
+                         % (ref, url))
+    return rtype, sha1
+
+
+def get_full_ref_type(full_ref_string):
+    prefixes = {
+        "refs/heads/": "branch",
+        "refs/tags/": "tag",
+    }
+    for prefix, rtype in prefixes.items():
+        if full_ref_string.startswith(prefix):
+            return rtype, full_ref_string[len(prefix):]
+    if full_ref_string == "HEAD":
+        return "HEAD", full_ref_string
+    raise ValueError("Unexpected full ref syntax %r." % full_ref_string)
+
+
