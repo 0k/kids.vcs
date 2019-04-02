@@ -689,6 +689,9 @@ class GitRepos(object):
         try:
             while True:  ## next(values) will eventualy raise StopIteration
                 yield mk_commit({key: next(values) for key in GIT_FORMAT_KEYS})
+        except StopIteration:
+            pass  ## since 3.7, we are not allowed anymore to trickle down
+                  ## StopIteration.
         finally:
             plog.stdout.close()
             plog.stderr.close()
