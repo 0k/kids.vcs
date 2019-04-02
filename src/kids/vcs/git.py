@@ -699,3 +699,7 @@ class GitRepos(object):
         finally:
             plog.stdout.close()
             plog.stderr.close()
+
+
+git = GitCmd()
+
